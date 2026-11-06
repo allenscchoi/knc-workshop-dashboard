@@ -99,12 +99,15 @@ section.on{display:block}
 .cat.c3{background:color-mix(in srgb, var(--s3) 16%, transparent); color:var(--ink-1)}
 .cat.c4{background:color-mix(in srgb, var(--s4) 16%, transparent); color:var(--ink-1)}
 .cat.c5{background:color-mix(in srgb, var(--s5) 16%, transparent); color:var(--ink-1)}
+.cat.stx{background:transparent; border:1px solid var(--ring); color:var(--ink-2)}
 .card .meta{display:flex; gap:.9rem; font-size:.75rem; color:var(--ink-2); margin:.25rem 0 .55rem; flex-wrap:wrap}
 .card .meta b{color:var(--ink-1); font-weight:600}
 .pbar{height:.55rem; border-radius:4px; background:var(--s1-track); overflow:hidden; position:relative}
 .pbar .fill{height:100%; background:var(--s1); border-radius:0 4px 4px 0}
 .pbar .fill.full{background:var(--good)}
-.card .pline{display:flex; align-items:baseline; gap:.6rem; margin-top:.4rem}
+.pbar .fill.warn{background:var(--warn)}
+.pbar .fill.crit{background:var(--crit)}
+.card .pline{display:flex; align-items:baseline; gap:.6rem; margin-top:.4rem; flex-wrap:wrap}
 .card .pnum{font-size:.95rem; font-weight:650; font-variant-numeric:tabular-nums}
 .card .ppct{font-size:.78rem; color:var(--ink-2)}
 .badge{display:inline-flex; align-items:center; gap:.3em; font-size:.7rem; font-weight:650; border-radius:999px; padding:.16em .6em}
@@ -127,7 +130,10 @@ section.on{display:block}
 .doneitem.open .donedetail{display:block}
 .st.maint{color:var(--serious)}
 .st.maint .dot{background:var(--serious)}
-.mtile .last.maint{color:var(--serious)}
+.st.crit{color:var(--crit)}
+.st.crit .dot{background:var(--crit)}
+.st.warn{color:var(--serious)}
+.st.warn .dot{background:var(--warn)}
 
 /* ---------- machine tiles ---------- */
 .mtile{background:var(--surface-1); border:1px solid var(--ring); border-radius:.8rem; padding:.8rem .95rem}
@@ -139,22 +145,20 @@ section.on{display:block}
 .st.run .dot{background:var(--good)}
 .st.run{color:var(--good-txt)}
 .mtile .sub{font-size:.72rem; color:var(--ink-3); margin-top:.05rem}
-.mtile .stats{display:flex; gap:1.1rem; margin:.55rem 0 .45rem}
+.mtile .stats{display:flex; gap:1.1rem; margin:.55rem 0 .45rem; flex-wrap:wrap}
 .mstat .lb{font-size:.68rem; color:var(--ink-3); font-weight:600}
 .mstat .v{font-size:1.15rem; font-weight:650; font-variant-numeric:tabular-nums}
 .mstat .v small{font-size:.6em; color:var(--ink-3); font-weight:600}
 .spark{display:block; width:100%; height:2.2rem}
 .spark rect{shape-rendering:crispEdges}
 .mtile .last{font-size:.72rem; color:var(--ink-2); margin-top:.4rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.mtile .last.maint{color:var(--serious)}
 
 /* ---------- allocation tab ---------- */
 .selrow{display:flex; gap:.6rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap}
 .selrow label{font-size:.8rem; font-weight:650; color:var(--ink-2)}
 .selrow select{font:inherit; font-size:.9rem; padding:.45em .7em; border-radius:.5rem;
   border:1px solid var(--ring); background:var(--surface-1); color:var(--ink-1); max-width:100%; min-width:16rem}
-.catchips{display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:1rem}
-.catchip{font-size:.75rem; border:1px solid var(--ring); background:var(--surface-1); border-radius:999px; padding:.25em .8em; color:var(--ink-2)}
-.catchip b{color:var(--ink-1); font-weight:650}
 .bars{display:flex; flex-direction:column; gap:.45rem}
 .brow{display:grid; grid-template-columns:minmax(8rem,14rem) 1fr max-content; gap:.7rem; align-items:center;
   background:var(--surface-1); border:1px solid var(--ring); border-radius:.6rem; padding:.5rem .8rem}
@@ -176,7 +180,7 @@ section.on{display:block}
 .dcol > div:first-child{border-radius:3px 3px 0 0}
 .dxl{font-size:.62rem; color:var(--ink-3); text-align:center; margin-top:.25rem; white-space:nowrap; height:1rem}
 
-/* ---------- footer / toast / tooltip ---------- */
+/* ---------- footer / signin / toast / tooltip ---------- */
 footer{margin-top:1.6rem; font-size:.72rem; color:var(--ink-3); line-height:1.5}
 #signin{position:fixed; inset:0; background:var(--plane); display:flex; align-items:center; justify-content:center; z-index:100; padding:1rem}
 #signin.hide{display:none}
@@ -249,7 +253,6 @@ footer{margin-top:1.6rem; font-size:.72rem; color:var(--ink-3); line-height:1.5}
       <select id="ordersel"></select>
     </div>
     <div class="kpis" id="akpis"></div>
-    <div class="catchips" id="acats"></div>
     <h2 class="sech" id="achart-title"></h2>
     <div class="aleg" id="aleg"></div>
     <div class="dchart-wrap"><div class="dchart" id="achart"></div></div>
@@ -338,7 +341,10 @@ class En{constructor(e,t,r,n,o,i,a,s){this.canonicalAuthority=e,this._canonicalA
 </script>
 <script>
 'use strict';
-let RAW = null;
+/* KNC VN Workshop Dashboard — V2 edition.
+   Reads the WorkshopV2 lists (Workshop Control Center app data) via Microsoft Graph.
+   Business rules are a direct port of the app's overviewDashboardModel:
+   progress = min over machines of (good + migrated legacy qty) / ordered qty. */
 
 /* ================= i18n ================= */
 const STR = {
@@ -347,25 +353,27 @@ const STR = {
   tabs_alloc:   {en:'Order × Machine',vi:'Đơn hàng × Máy',   ko:'주문×기계 투입'},
   refresh:      {en:'⟳ Refresh',      vi:'⟳ Làm mới',        ko:'⟳ 새로 고침'},
   autocycle:    {en:'▶ Auto',         vi:'▶ Tự động',        ko:'▶ 자동 전환'},
-  snapshot:     {en:'SNAPSHOT · data as of', vi:'ẢNH CHỤP · dữ liệu đến', ko:'스냅샷 · 데이터 기준'},
-  toast_snap:   {en:'Snapshot preview — the live version reloads directly from SharePoint.',
-                 vi:'Bản xem trước — phiên bản chính thức sẽ tải lại trực tiếp từ SharePoint.',
-                 ko:'스냅샷 시안입니다 — 라이브 버전에서는 SharePoint에서 바로 다시 불러옵니다.'},
+  live_badge:   {en:'LIVE · updated', vi:'TRỰC TIẾP · cập nhật', ko:'라이브 · 갱신'},
+  signin_btn:   {en:'Sign in with company account', vi:'Đăng nhập bằng tài khoản công ty', ko:'회사 계정으로 로그인'},
+  signin_note:  {en:'A company (kncmarinekr) account with access to the kncvn-Workshop site is required.', vi:'Cần tài khoản công ty (kncmarinekr) có quyền truy cập site kncvn-Workshop.', ko:'kncvn-Workshop 사이트 접근 권한이 있는 회사 계정이 필요합니다.'},
+  loading:      {en:'Loading…', vi:'Đang tải…', ko:'불러오는 중…'},
+  err_load:     {en:'Refresh failed:', vi:'Làm mới thất bại:', ko:'갱신 실패:'},
   all:          {en:'All', vi:'Tất cả', ko:'전체'},
-  kpi_active:   {en:'Orders in progress', vi:'Đơn hàng đang gia công', ko:'진행 중 주문'},
+  kpi_active:   {en:'Orders in production', vi:'Đơn hàng đang sản xuất', ko:'생산 중 주문'},
   kpi_hrs_today:{en:'Hours today',        vi:'Giờ máy hôm nay',        ko:'오늘 투입 시간'},
   kpi_qty_today:{en:'Pieces today',       vi:'Sản lượng hôm nay',      ko:'오늘 생산 수량'},
+  kpi_alerts:   {en:'Needs attention',    vi:'Cần chú ý',              ko:'주의 필요'},
   kpi_done45:   {en:'Completed (45 days)',vi:'Hoàn thành (45 ngày)',   ko:'완료 (최근 45일)'},
+  alerts_sub:   {en:'overdue · stalled · not started', vi:'quá hạn · đình trệ · chưa bắt đầu', ko:'납기 경과 · 정체 · 미착수'},
   kpi_m_active: {en:'Machines active',    vi:'Máy hoạt động',          ko:'가동 기계'},
   kpi_m_orders: {en:'Orders worked',      vi:'Đơn hàng đã làm',        ko:'작업한 주문'},
   kpi_m_qty:    {en:'Pieces produced',    vi:'Sản lượng',              ko:'생산 수량'},
-  kpi_m_done:   {en:'Orders completed',   vi:'Đơn hoàn thành',         ko:'완료 주문'},
-  avg_day:      {en:'Avg per working day',vi:'TB mỗi ngày làm',        ko:'가동일 평균'},
-  avg_month:    {en:'Avg per month',      vi:'TB mỗi tháng',           ko:'월평균'},
+  kpi_m_done:   {en:'Production completed',vi:'Hoàn tất sản xuất',     ko:'생산 완료'},
+  avg_day:      {en:'avg/day',            vi:'TB/ngày',                ko:'일평균'},
   lbl_hours:    {en:'Hours',  vi:'Giờ',  ko:'가동 시간'},
   lbl_orders:   {en:'Orders', vi:'Đơn',  ko:'주문'},
   lbl_pieces:   {en:'Pieces', vi:'SL',   ko:'수량'},
-  maint_label:  {en:'Maintenance', vi:'Bảo dưỡng', ko:'수리/보수'},
+  lbl_days:     {en:'Active days', vi:'Ngày chạy', ko:'가동일'},
   quarter:      {en:'Quarter', vi:'Quý', ko:'분기'},
   year:         {en:'Year',    vi:'Năm', ko:'연간'},
   other:        {en:'Other',   vi:'Khác', ko:'기타'},
@@ -374,117 +382,364 @@ const STR = {
   ordered:      {en:'Ordered', vi:'Đặt', ko:'주문'},
   buyer:        {en:'Buyer',   vi:'Khách', ko:'구매처'},
   started:      {en:'Order date', vi:'Ngày đặt', ko:'주문일'},
+  due_lbl:      {en:'Due',     vi:'Hạn giao', ko:'납기'},
   elapsed:      {en:'days',    vi:'ngày', ko:'일째'},
   longrun:      {en:'Long-running', vi:'Kéo dài', ko:'장기 진행'},
   stalled:      {en:'Stalled',      vi:'Đình trệ', ko:'정체'},
   d_idle:       {en:'d idle',       vi:' ngày dừng', ko:'일 무작업'},
   d_lead:       {en:'d',            vi:' ngày', ko:'일'},
   qty_reached:  {en:'Qty reached',  vi:'Đủ số lượng', ko:'수량 도달'},
-  no_ops:       {en:'Not started',  vi:'Chưa bắt đầu', ko:'착수 전'},
-  st_maint:     {en:'Repair/Maint.', vi:'Sửa chữa/Bảo dưỡng', ko:'수리/보수 중'},
-  maint_month:  {en:'Maintenance this month', vi:'Bảo dưỡng tháng này', ko:'이달 수리/보수'},
-  done_title:   {en:'Recently completed', vi:'Mới hoàn thành', ko:'최근 완료'},
+  no_ops:       {en:'Not started',  vi:'Chưa bắt đầu', ko:'미착수'},
+  due_soon:     {en:'Due soon',     vi:'Sắp đến hạn', ko:'납기 임박'},
+  due_over:     {en:'Overdue',      vi:'Quá hạn giao', ko:'납기 경과'},
+  done_title:   {en:'Recently completed', vi:'Mới hoàn tất sản xuất', ko:'최근 생산 완료'},
   completed:    {en:'Completed', vi:'Hoàn thành', ko:'완료'},
   today:        {en:'Today', vi:'Hôm nay', ko:'오늘'},
   week:         {en:'Week',  vi:'Tuần',   ko:'주'},
   month:        {en:'Month', vi:'Tháng',  ko:'월'},
   st_run:       {en:'Running today', vi:'Đang chạy', ko:'오늘 가동'},
   st_idle:      {en:'Standby',       vi:'Chờ việc',  ko:'대기'},
-  st_off:       {en:'No activity 7d+', vi:'Nghỉ 7 ngày+', ko:'7일+ 무가동'},
+  st_repair:    {en:'Repair/Maint.', vi:'Sửa chữa/Bảo dưỡng', ko:'수리/보수 중'},
+  st_mover:     {en:'Maint. overdue', vi:'Bảo dưỡng quá hạn', ko:'보수 지연'},
+  st_msoon:     {en:'Maint. due soon', vi:'Sắp bảo dưỡng', ko:'보수 임박'},
   last_job:     {en:'Last job', vi:'Việc gần nhất', ko:'최근 작업'},
   sel_order:    {en:'Order', vi:'Đơn hàng', ko:'주문 선택'},
-  kpi_a_prog:   {en:'Progress (est.)', vi:'Tiến độ (ước tính)', ko:'진행 (추정)'},
+  kpi_a_prog:   {en:'Progress', vi:'Tiến độ', ko:'진행률'},
   kpi_a_hrs:    {en:'Machine hours',   vi:'Tổng giờ máy',       ko:'총 투입 시간'},
   kpi_a_mach:   {en:'Machines used',   vi:'Số máy tham gia',    ko:'투입 기계 수'},
   kpi_a_period: {en:'Work period',     vi:'Thời gian làm',      ko:'작업 기간'},
   hrs:          {en:'h',  vi:'g',  ko:'시간'},
   pcs:          {en:'ea', vi:'cái', ko:'개'},
-  in_progress:  {en:'in progress', vi:'đang làm', ko:'진행 중'},
-  live_badge:   {en:'LIVE · updated', vi:'TRỰC TIẾP · cập nhật', ko:'라이브 · 갱신'},
-  signin_btn:   {en:'Sign in with company account', vi:'Đăng nhập bằng tài khoản công ty', ko:'회사 계정으로 로그인'},
-  signin_note:  {en:'A company (kncmarinekr) account with access to the kncvn-Workshop site is required.', vi:'Cần tài khoản công ty (kncmarinekr) có quyền truy cập site kncvn-Workshop.', ko:'kncvn-Workshop 사이트 접근 권한이 있는 회사 계정이 필요합니다.'},
-  loading:      {en:'Loading…', vi:'Đang tải…', ko:'불러오는 중…'},
-  err_load:     {en:'Refresh failed:', vi:'Làm mới thất bại:', ko:'갱신 실패:'},
+  in_progress:  {en:'in production', vi:'đang sản xuất', ko:'생산 중'},
+  legacy_note:  {en:'≈ includes migrated legacy quantities (unverified)', vi:'≈ gồm số lượng chuyển từ hệ cũ (chưa xác minh)', ko:'≈ 레거시 이관 수량 포함(미검증)'},
   foot: {
-    en:'Live view of SharePoint data. Progress = hours-based estimate: avg time per piece for each operation type (from Daily Records time ÷ qty) × order qty = expected hours; progress = spent ÷ expected, capped at 100%. "Qty reached" = estimate hit order qty (official completion = Completion Date entered → moves to "Recently completed"). Stalled = started but no work records for 7+ days · Long-running = 35+ days since order (top-quartile of historical lead times) · Repair/Maint. = latest record on that machine belongs to a Maintenance-category order. Data is read directly from SharePoint with your company account; press ⟳ Refresh or wait for the 10-minute auto-refresh.',
-    vi:'Dữ liệu trực tiếp từ SharePoint. Tiến độ = ước tính theo giờ: thời gian trung bình mỗi chi tiết cho từng loại công đoạn (giờ ÷ số lượng trong Daily Records) × số lượng đặt = giờ dự kiến; tiến độ = giờ đã làm ÷ giờ dự kiến, tối đa 100%. "Đủ số lượng" = ước tính đạt số lượng đặt (hoàn thành chính thức = nhập Completion Date → chuyển sang "Mới hoàn thành"). Đình trệ = đã bắt đầu nhưng 7+ ngày không có ghi chép · Kéo dài = quá 35 ngày kể từ ngày đặt · Sửa chữa/Bảo dưỡng = ghi chép gần nhất của máy thuộc đơn loại Maintenance. Dữ liệu đọc trực tiếp từ SharePoint bằng tài khoản công ty; bấm ⟳ hoặc chờ tự làm mới mỗi 10 phút.',
-    ko:'SharePoint 데이터를 직접 읽는 라이브 화면입니다. 진행률 = 시간 기반 추정: 공정 유형별 개당 평균 소요시간(작업기록의 시간÷수량) × 주문수량 = 기대 시간, 진행률 = 투입 시간 ÷ 기대 시간(100% 상한). "수량 도달" = 추정치가 주문수량에 도달한 상태(공식 완료는 Completion Date 입력 시 → "최근 완료"로 이동). 정체 = 착수 후 7일 이상 작업 기록 없음 · 장기 진행 = 주문 후 35일 경과(과거 완료 리드타임 상위 25% 기준) · 수리/보수 중 = 해당 기계의 최근 기록이 Maintenance 주문 소속. 회사 계정으로 SharePoint에서 직접 읽으며, ⟳ 새로 고침 또는 10분마다 자동 갱신됩니다.'
+    en:'Live view of the Workshop Control Center (WorkshopV2) data, read directly from SharePoint with your company account; press ⟳ Refresh or wait for the 10-minute auto-refresh. Progress = the minimum, across all machines that worked the order, of cumulative good quantity ÷ ordered quantity (every machine must process the full quantity; ≈ marks machines whose count includes unverified migrated legacy quantities). Orders whose production is marked complete in the app count as 100%. Stalled = started but no work records for 7+ days · Not started = 7+ days since order with no records · Long-running = 35+ days since order · Due soon = confirmed due date within 3 days · Overdue = past the confirmed due date. Machine status comes from the app\'s maintenance events and plans (open breakdown/repair reports, overdue or due-soon maintenance).',
+    vi:'Dữ liệu trực tiếp của hệ thống Workshop Control Center (WorkshopV2), đọc thẳng từ SharePoint bằng tài khoản công ty; bấm ⟳ hoặc chờ tự làm mới mỗi 10 phút. Tiến độ = mức thấp nhất, trong các máy đã gia công đơn hàng, của sản lượng đạt lũy kế ÷ số lượng đặt (mọi máy đều phải gia công đủ số lượng; dấu ≈ = máy có số lượng chuyển từ hệ cũ chưa xác minh). Đơn hàng đã được đánh dấu hoàn tất sản xuất trong ứng dụng tính là 100%. Đình trệ = đã bắt đầu nhưng 7+ ngày không có ghi chép · Chưa bắt đầu = 7+ ngày từ ngày đặt mà chưa có ghi chép · Kéo dài = quá 35 ngày kể từ ngày đặt · Sắp đến hạn = còn ≤3 ngày tới hạn giao đã xác nhận · Quá hạn = vượt hạn giao đã xác nhận. Tình trạng máy lấy từ sự kiện và kế hoạch bảo dưỡng trong ứng dụng (báo hỏng/sửa chữa đang mở, bảo dưỡng quá hạn hoặc sắp đến hạn).',
+    ko:'Workshop Control Center(WorkshopV2) 데이터를 회사 계정으로 SharePoint에서 직접 읽는 라이브 화면입니다. ⟳ 새로 고침 또는 10분마다 자동 갱신됩니다. 진행률 = 해당 주문을 가공한 설비별 "양품 누계 ÷ 주문수량"의 최솟값(모든 설비가 전체 수량을 가공해야 하며, ≈ 표시는 미검증 레거시 이관 수량이 포함된 설비). 앱에서 생산 완료로 처리된 주문은 100%로 표시됩니다. 정체 = 착수 후 7일 이상 작업 기록 없음 · 미착수 = 주문 후 7일 이상 기록 없음 · 장기 진행 = 주문 후 35일 경과 · 납기 임박 = 확정 납기 3일 이내 · 납기 경과 = 확정 납기 초과. 기계 상태는 앱의 정비 이벤트·보수 계획(미결 고장/수리 신고, 보수 지연·임박)에서 가져옵니다.'
   },
+};
+const ST_LBL = {
+  Received:          {en:'Received', vi:'Đã nhận', ko:'접수'},
+  Planned:           {en:'Planned', vi:'Đã lập kế hoạch', ko:'계획'},
+  Scheduled:         {en:'Scheduled', vi:'Đã phân công', ko:'배정'},
+  InProgress:        {en:'In progress', vi:'Đang sản xuất', ko:'생산중'},
+  OnHold:            {en:'On hold', vi:'Tạm dừng', ko:'보류'},
+  ProductionComplete:{en:'Production complete', vi:'Hoàn tất sản xuất', ko:'생산완료'},
+  PartiallyDelivered:{en:'Partially delivered', vi:'Giao một phần', ko:'부분납품'},
+  Delivered:         {en:'Delivered', vi:'Đã giao', ko:'납품완료'},
+  Closed:            {en:'Closed', vi:'Đã đóng', ko:'종결'},
+  Cancelled:         {en:'Cancelled', vi:'Đã hủy', ko:'취소'},
 };
 const QP = new URLSearchParams(location.search);
 let LANG = QP.get('lang') || localStorage.getItem('knc_lang') || 'en';
 if (!['en','vi','ko'].includes(LANG)) LANG = 'en';
 const t = k => (STR[k] && (STR[k][LANG] || STR[k].en)) || k;
+const tst = s => (ST_LBL[s] && (ST_LBL[s][LANG] || ST_LBL[s].en)) || s || '';
 
-/* ================= data prep ================= */
-let REF, refD, monWk, mo1, M, O, activeOrders, doneOrders, done45;
-const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0,10); };
-const fmtN = n => n.toLocaleString('en-US', {maximumFractionDigits: 0});
-const fmtH = n => n >= 100 ? fmtN(Math.round(n)) : (Math.round(n*10)/10).toLocaleString('en-US');
-const CATCLS = {'Product':'c1','Mold/Core':'c3','Repair Product':'c4','Sample':'c5','Maintenance':'c2'};
+/* ================= date helpers (ported from overviewDashboardModel) ================= */
+/* WorkDate/OrderDate/ConfirmedDueDate are stored at KST midnight (UTC+9, migrated rows
+   as T15:00Z, new rows as T00:00Z) — both land on the same business day with +9h.
+   "Today" follows the Vietnam business calendar (UTC+7). */
+const BIZ_OFF = 7 * 60, STORE_OFF = 9 * 60, DAY = 86400000;
+const STALLED_D = 7, NOTSTART_D = 7, LONGRUN_D = 35, DUESOON_D = 3, DAILY_LIMIT = 36, OTHER_KEY = '__other__';
+const dayNumUTC = (y, m, d) => Math.floor(Date.UTC(y, m, d) / DAY);
+function bizParts(time) {
+  const s = new Date(time + BIZ_OFF * 60000);
+  return { y: s.getUTCFullYear(), m: s.getUTCMonth(), d: s.getUTCDate() };
+}
+function todayDayNum() { const p = bizParts(Date.now()); return dayNumUTC(p.y, p.m, p.d); }
+function bdn(value) {   /* business day number of a stored date value */
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? Math.floor((time + STORE_OFF * 60000) / DAY) : null;
+}
+function tsDay(value) { /* business day of a real timestamp (VN calendar); date-convention values use +9 */
+  if (!value) return null;
+  if (/T(15|00):00:00(\.0+)?Z$/.test(value)) return bdn(value);
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? Math.floor((time + BIZ_OFF * 60000) / DAY) : null;
+}
+const dayStr = n => new Date(n * DAY).toISOString().slice(0, 10);
+const mondayOf = n => n - ((new Date(n * DAY).getUTCDay() + 6) % 7);
+const storageBoundary = (y, m, d) => new Date(Date.UTC(y, m, d) - STORE_OFF * 60000);
+
+function dashRange(period) {  /* [a, b) in day numbers */
+  const p = bizParts(Date.now());
+  const T = dayNumUTC(p.y, p.m, p.d);
+  if (period === 'today') return [T, T + 1];
+  if (period === 'week') { const mon = mondayOf(T); return [mon, mon + 7]; }
+  if (period === 'month') return [dayNumUTC(p.y, p.m, 1), dayNumUTC(p.y, p.m + 1, 1)];
+  if (period === 'quarter') { const q = Math.floor(p.m / 3) * 3; return [dayNumUTC(p.y, q, 1), dayNumUTC(p.y, q + 3, 1)]; }
+  return [dayNumUTC(p.y, 0, 1), dayNumUTC(p.y + 1, 0, 1)];
+}
+function sparkBuckets(period) { /* trend buckets: daily (today = last 7 days), weekly for quarter, monthly for year */
+  const p = bizParts(Date.now());
+  const T = dayNumUTC(p.y, p.m, p.d);
+  const out = [];
+  if (period === 'today') { for (let d = T - 6; d <= T; d++) out.push([d, d + 1]); return out; }
+  if (period === 'week') { const mon = mondayOf(T); for (let d = mon; d < mon + 7; d++) out.push([d, d + 1]); return out; }
+  if (period === 'month') { const a = dayNumUTC(p.y, p.m, 1), b = dayNumUTC(p.y, p.m + 1, 1); for (let d = a; d < b; d++) out.push([d, d + 1]); return out; }
+  if (period === 'quarter') {
+    const q = Math.floor(p.m / 3) * 3, a = dayNumUTC(p.y, q, 1), b = dayNumUTC(p.y, q + 3, 1);
+    for (let d = a; d < b; d += 7) out.push([d, Math.min(d + 7, b)]);
+    return out;
+  }
+  for (let m = 0; m < 12; m++) out.push([dayNumUTC(p.y, m, 1), dayNumUTC(p.y, m + 1, 1)]);
+  return out;
+}
+const fmtN = n => n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+const fmtH = n => n >= 100 ? fmtN(Math.round(n)) : (Math.round(n * 10) / 10).toLocaleString('en-US');
+const CATCLS = { 'Product': 'c1', 'Mold-Core': 'c3', 'Mold/Core': 'c3', 'Repair Product': 'c4', 'Sample': 'c5', 'Maintenance': 'c2', 'Other': 'c2' };
+const INPROD = new Set(['Received', 'Planned', 'Scheduled', 'InProgress', 'OnHold']);
+const DONE_ST = new Set(['ProductionComplete', 'PartiallyDelivered', 'Delivered', 'Closed']);
+const OPEN_EVENT = new Set(['Reported', 'Acknowledged', 'Repairing']);
+
+/* ================= model ================= */
+let RAW = null;       /* {machines, orders, logs, plans, events} — logs already filtered to effective records */
+let TODAY = todayDayNum();
+let MODEL = null;
+
+function ingest(src) {
+  const isNum = v => typeof v === 'number' && Number.isFinite(v);
+  const machines = [];
+  for (const f of src.machines) {
+    if (!f.Title) continue;
+    machines.push({
+      code: f.Title, name: f.DisplayName || f.Title, grp: f.MachineGroup || '', brand: f.Brand || '',
+      st: f.MachineStatus || '', prod: f.IsProductionMachine !== false, act: f.IsActive !== false,
+      baseH: isNum(f.OperatingHoursBaseline) ? f.OperatingHoursBaseline : null,
+      baseAt: f.OperatingHoursBaselineAt || null, hsrc: f.OperatingHoursDataSource || 'NotConfigured'
+    });
+  }
+  const lineByOrder = new Map();
+  for (const f of src.lines) {
+    if (!f.OrderNoSnapshot || f.Status === 'Cancelled') continue;
+    const e = lineByOrder.get(f.OrderNoSnapshot) || { qty: 0, unit: null };
+    if (isNum(f.QuantityOrdered)) e.qty += f.QuantityOrdered;
+    if (!e.unit && f.Unit) e.unit = f.Unit;
+    lineByOrder.set(f.OrderNoSnapshot, e);
+  }
+  const orders = [];
+  for (const f of src.orders) {
+    if (!f.Title || f.RecordState !== 'Active') continue;
+    const line = lineByOrder.get(f.Title);
+    orders.push({
+      no: f.Title, cat: f.Category || '', buyer: f.CustomerCodeSnapshot || '', st: f.Status || '',
+      od: bdn(f.OrderDate), due: f.ConfirmedDueDate ? bdn(f.ConfirmedDueDate) : null,
+      pc: f.ProductionCompletedAt || null, fa: f.FinalDeliveredAt || null,
+      cl: f.ClosedAt || null, la: f.LastActivityAt || null,
+      qty: line ? line.qty : 0, unit: line && line.unit || 'EA'
+    });
+  }
+  const logs = [];
+  for (const f of src.logs) {
+    if (f.RecordStatus === 'Voided') continue;
+    if (f.CorrectionState === 'Cancelled' || f.CorrectionState === 'Reversed' || f.CorrectionState === 'Reversal') continue;
+    const d = bdn(f.WorkDate);
+    if (d === null) continue;
+    const prod = f.ActivityType === 'Production';
+    const legacy = isNum(f.LegacyRecordedQuantity) ? f.LegacyRecordedQuantity
+      : isNum(f.LegacyReportedQuantity) ? f.LegacyReportedQuantity : 0;
+    logs.push({
+      d, m: f.MachineCodeSnapshot || '?', o: f.OrderNoSnapshot || '',
+      min: isNum(f.ActualMinutes) ? f.ActualMinutes : 0,
+      vq: prod && isNum(f.GoodQuantity) ? f.GoodQuantity : 0,
+      lq: prod ? legacy : 0
+    });
+  }
+  const plans = src.plans.filter(f => f.IsActive !== false && f.MachineCodeSnapshot).map(f => ({
+    m: f.MachineCodeSnapshot, basis: f.IntervalBasis || 'CalendarDays',
+    due: f.NextDueDate ? Date.parse(f.NextDueDate) : null,
+    dueH: isNum(f.NextDueOperatingHours) ? f.NextDueOperatingHours : null,
+    iv: isNum(f.IntervalValue) ? f.IntervalValue : 0
+  }));
+  const events = src.events.filter(f => f.Status !== 'Cancelled' && f.MachineCodeSnapshot)
+    .map(f => ({ m: f.MachineCodeSnapshot, st: f.Status || '', at: f.ReportedAt || '' }));
+  return { machines, orders, logs, plans, events };
+}
+
+function isDone(o) { return DONE_ST.has(o.st) || !!o.pc; }
+function compTime(o) {
+  const src = o.pc || o.fa || o.cl || o.la;
+  if (src) { const t0 = Date.parse(src); if (Number.isFinite(t0)) return t0; }
+  return o.od !== null ? o.od * DAY : 0;
+}
+function compDay(o) {
+  return tsDay(o.pc) ?? tsDay(o.fa) ?? tsDay(o.cl) ?? tsDay(o.la) ?? o.od;
+}
+
+function progressRow(o, logs) {
+  const by = new Map();
+  let first = null, last = null, totMin = 0;
+  for (const l of logs) {
+    const e = by.get(l.m) || { min: 0, vq: 0, lq: 0, last: null };
+    e.min += l.min; e.vq += l.vq; e.lq += l.lq;
+    e.last = e.last === null ? l.d : Math.max(e.last, l.d);
+    first = first === null ? l.d : Math.min(first, l.d);
+    last = last === null ? l.d : Math.max(last, l.d);
+    totMin += l.min;
+    by.set(l.m, e);
+  }
+  const mach = [...by.entries()]
+    .map(([m, e]) => ({ m, ...e, ratio: o.qty > 0 ? Math.min(1, (e.vq + e.lq) / o.qty) : null }))
+    .sort((a, b) => b.min - a.min);
+  const done = isDone(o);
+  let ratio = null;
+  if (done) ratio = 1;
+  else if (o.qty > 0 && mach.length) ratio = mach.reduce((mn, x) => Math.min(mn, x.ratio ?? 0), 1);
+  const dso = o.od === null ? null : TODAY - o.od;
+  const dtd = o.due === null ? null : o.due - TODAY;
+  const qreach = o.qty > 0 && mach.length > 0 && mach.every(x => x.vq + x.lq >= o.qty);
+  const flags = done ? {} : {
+    notStarted: last === null && dso !== null && dso >= NOTSTART_D,
+    stalled: last !== null && TODAY - last >= STALLED_D,
+    longRunning: dso !== null && dso >= LONGRUN_D,
+    overdue: dtd !== null && dtd < 0,
+    dueSoon: dtd !== null && dtd >= 0 && dtd <= DUESOON_D,
+    quantityReached: qreach
+  };
+  return { o, mach, totMin, ratio, legacy: mach.some(x => x.lq > 0), first, last, dso, dtd, flags };
+}
+function severityOf(r) {
+  if (r.flags.overdue) return 0;
+  if (r.flags.dueSoon) return 1;
+  if (r.flags.stalled || r.flags.notStarted) return 2;
+  return 3;
+}
 
 function buildModel() {
-REF = RAW.meta.refday;
-refD = new Date(REF + 'T00:00:00Z');
-monWk = (() => { const dow = (new Date(REF + 'T00:00:00Z').getUTCDay() + 6) % 7; return addDays(REF, -dow); })();
-mo1 = REF.slice(0,8) + '01';
-M = RAW.machines.map(m => ({...m,
-  today:0, week:0, month:0, days:{}, lastD:null, lastOrder:null, cnt30:0,
-  mToday:0, mWeek:0, mMonth:0, lastIsMaint:false}));
-O = RAW.orders.map(o => ({...o,
-  hrs:0, qty_done:0, cats:{}, catHrs:{}, byMach:{}, firstOp:null, lastOp:null, machSet:new Set()}));
+  TODAY = todayDayNum();
+  const logsByOrder = new Map();
+  for (const l of RAW.logs) {
+    const arr = logsByOrder.get(l.o);
+    if (arr) arr.push(l); else logsByOrder.set(l.o, [l]);
+  }
+  const lastByMachine = new Map();
+  for (const l of RAW.logs) {
+    const cur = lastByMachine.get(l.m);
+    if (!cur || l.d > cur.d) lastByMachine.set(l.m, { d: l.d, o: l.o });
+  }
+  const inProd = RAW.orders.filter(o => INPROD.has(o.st) && !isDone(o))
+    .map(o => progressRow(o, logsByOrder.get(o.no) || []))
+    .sort((a, b) => {
+      const s = severityOf(a) - severityOf(b);
+      if (s !== 0) return s;
+      const ad = a.dtd ?? Number.MAX_SAFE_INTEGER, bd = b.dtd ?? Number.MAX_SAFE_INTEGER;
+      if (ad !== bd) return ad - bd;
+      return (b.last ?? 0) - (a.last ?? 0);
+    });
+  const doneOrders = RAW.orders.filter(isDone).sort((a, b) => compTime(b) - compTime(a));
+  MODEL = { logsByOrder, lastByMachine, inProd, doneOrders };
+}
 
-for (const [d, mi, oi, hrs, qty] of RAW.ops) {
-  const m = M[mi];
-  const isMaint = oi >= 0 && O[oi].cat === 'Maintenance';
-  if (isMaint) {          /* repair/maintenance work — tracked separately from production hours */
-    if (d === REF) m.mToday += hrs;
-    if (d >= monWk && d <= REF) m.mWeek += hrs;
-    if (d >= mo1 && d <= REF) m.mMonth += hrs;
-  } else {
-    if (d === REF) m.today += hrs;
-    if (d >= monWk && d <= REF) m.week += hrs;
-    if (d >= mo1 && d <= REF) m.month += hrs;
-    if (d >= addDays(REF, -13)) m.days[d] = (m.days[d] || 0) + hrs;
-  }
-  if (d >= addDays(REF, -29)) m.cnt30 += hrs;
-  if (!m.lastD || d > m.lastD) { m.lastD = d; m.lastOrder = oi >= 0 ? O[oi].t : null; m.lastIsMaint = isMaint; }
-  if (oi >= 0) {
-    const o = O[oi];
-    o.hrs += hrs;
-    o.cats[m.cat] = (o.cats[m.cat] || 0) + qty;
-    o.catHrs[m.cat] = (o.catHrs[m.cat] || 0) + hrs;
-    const bd = (o.byDate ||= {})[d] ||= {};
-    bd[mi] = (bd[mi] || 0) + hrs;
-    if (!o.byMach[mi]) o.byMach[mi] = {hrs:0, qty:0, first:d, last:d};
-    const bm = o.byMach[mi];
-    bm.hrs += hrs; bm.qty += qty;
-    if (d < bm.first) bm.first = d;
-    if (d > bm.last) bm.last = d;
-    if (!o.firstOp || d < o.firstOp) o.firstOp = d;
-    if (!o.lastOp || d > o.lastOp) o.lastOp = d;
-    o.machSet.add(mi);
-  }
+/* ---- machine maintenance badge (port of machineBadgeOf + calculateMaintenanceAlert) ---- */
+function opHoursOf(m) {
+  if (m.hsrc === 'NotConfigured' || m.baseH === null || !m.baseAt) return { ready: false };
+  const baseDay = bdn(m.baseAt);
+  if (baseDay === null) return { ready: false };
+  /* approximation: whole business days from the baseline date (the app filters by exact
+     start/end times; close enough for due-soon/overdue alerts) */
+  let min = 0;
+  for (const l of RAW.logs) if (l.m === m.code && l.d >= baseDay && l.d <= TODAY) min += l.min;
+  return { ready: true, cur: Math.round((m.baseH + min / 60) * 1000) / 1000 };
 }
-for (const o of O) {
-  /* hours-based progress: per operation type (machine category), avg time per piece
-     × order qty = expected hours; progress = spent hours / expected hours, capped 100% */
-  let act = 0, exp = 0;
-  for (const [cat, q] of Object.entries(o.cats)) {
-    if (q > 0 && o.qty > 0) { const h = o.catHrs[cat] || 0; act += h; exp += h / q * o.qty; }
+function planAlert(p, oh) {
+  if (p.basis === 'CalendarDays') {
+    if (p.due === null || !Number.isFinite(p.due)) return null;
+    if (p.due < Date.now()) return 'Overdue';
+    return p.due <= Date.now() + 7 * DAY ? 'DueSoon' : null;
   }
-  o.pct = exp > 0 ? Math.min(100, Math.round(act / exp * 100)) : null;
-  o.qty_done = o.pct === null ? 0 : Math.round(o.pct / 100 * o.qty);
-  o.elapsed = Math.round((refD - new Date(o.od + 'T00:00:00Z')) / 864e5);
-  o.idleDays = o.lastOp ? Math.round((refD - new Date(o.lastOp + 'T00:00:00Z')) / 864e5) : null;
+  if (!oh.ready || oh.cur === undefined) return null;
+  if (p.dueH === null || p.dueH < 0) return null;
+  const rem = p.dueH - oh.cur;
+  if (rem <= 0) return 'Overdue';
+  return rem <= Math.max(1, p.iv * 0.1) ? 'DueSoon' : null;
 }
-for (const m of M) {
-  m.status = (m.lastIsMaint && m.lastD >= addDays(REF, -6)) ? 'maint'
-    : m.today > 0 ? 'run' : (m.lastD && m.lastD >= addDays(REF, -6)) ? 'idle' : 'off';
+function machineBadge(m, workToday) {
+  if (RAW.events.some(e => e.m === m.code && OPEN_EVENT.has(e.st))) return 'repair';
+  if (m.st === 'Breakdown' || m.st === 'Maintenance') return 'repair';
+  const myPlans = RAW.plans.filter(p => p.m === m.code);
+  if (myPlans.length) {
+    const oh = myPlans.some(p => p.basis !== 'CalendarDays') ? opHoursOf(m) : { ready: false };
+    let over = false, soon = false;
+    for (const p of myPlans) {
+      const a = planAlert(p, oh);
+      if (a === 'Overdue') over = true;
+      if (a === 'DueSoon') soon = true;
+    }
+    if (over) return 'mover';
+    if (soon) return 'msoon';
+  }
+  return workToday ? 'run' : 'idle';
 }
-activeOrders = O.filter(o => o.act).sort((a,b) => b.od.localeCompare(a.od));
-doneOrders = O.filter(o => !o.act && o.cd).sort((a,b) => b.cd.localeCompare(a.cd));
-done45 = doneOrders.filter(o => o.cd >= addDays(REF, -45)).length;
+
+function machinePeriod(period) {
+  const [a, b] = dashRange(period);
+  const buckets = sparkBuckets(period);
+  const prodMachines = RAW.machines.filter(m => m.act && m.prod);
+  const acc = new Map();
+  const accFor = code => {
+    let e = acc.get(code);
+    if (!e) { e = { min: 0, qty: 0, days: new Set(), orders: new Set(), spark: buckets.map(() => 0), workToday: false }; acc.set(code, e); }
+    return e;
+  };
+  const allOrders = new Set();
+  let totMin = 0, totQty = 0;
+  for (const l of RAW.logs) {
+    if (l.d < a || l.d >= b) continue;
+    const e = accFor(l.m);
+    e.min += l.min; e.qty += l.vq + l.lq;
+    e.days.add(l.d); e.orders.add(l.o);
+    if (l.d === TODAY) e.workToday = true;
+    for (let i = 0; i < buckets.length; i++) {
+      if (l.d >= buckets[i][0] && l.d < buckets[i][1]) { e.spark[i] += l.min; break; }
+    }
+    allOrders.add(l.o); totMin += l.min; totQty += l.vq + l.lq;
+  }
+  const rows = prodMachines.map(m => {
+    const e = acc.get(m.code);
+    return {
+      m, min: e ? e.min : 0, qty: e ? e.qty : 0,
+      days: e ? e.days.size : 0, orders: e ? e.orders.size : 0,
+      spark: e ? e.spark : buckets.map(() => 0),
+      badge: machineBadge(m, e ? e.workToday : false)
+    };
+  }).sort((x, y) => y.min - x.min);
+  const elapsedEnd = Math.min(TODAY, b - 1);
+  const elapsed = Math.max(1, elapsedEnd - a + 1);
+  const doneInPeriod = MODEL.doneOrders.filter(o => { const d = compDay(o); return d !== null && d >= a && d <= elapsedEnd; }).length;
+  return {
+    a, b, rows, buckets,
+    active: rows.filter(r => r.min > 0).length, prodCount: prodMachines.length,
+    workedOrders: allOrders.size, totMin, totQty, elapsed, doneInPeriod
+  };
+}
+
+function orderMachineChart(logs, maxMachines) {
+  const totals = new Map();
+  let first = null, last = null;
+  for (const l of logs) {
+    first = first === null ? l.d : Math.min(first, l.d);
+    last = last === null ? l.d : Math.max(last, l.d);
+    totals.set(l.m, (totals.get(l.m) || 0) + l.min);
+  }
+  if (first === null) return { buckets: [], machines: [], weekly: false, max: 0 };
+  const weekly = last - first + 1 > DAILY_LIMIT;
+  const top = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, maxMachines).map(([m]) => m);
+  const topSet = new Set(top);
+  const hasOther = totals.size > top.length;
+  const bmap = new Map();
+  for (const l of logs) {
+    const s = weekly ? mondayOf(l.d) : l.d;
+    const key = topSet.has(l.m) ? l.m : OTHER_KEY;
+    const bucket = bmap.get(s) || new Map();
+    bucket.set(key, (bucket.get(key) || 0) + l.min);
+    bmap.set(s, bucket);
+  }
+  const buckets = [...bmap.entries()].sort((a, b) => a[0] - b[0]).map(([s, map]) => {
+    let tot = 0; map.forEach(v => { tot += v; });
+    return { s, map, tot };
+  });
+  return { buckets, machines: hasOther ? [...top, OTHER_KEY] : top, weekly, max: buckets.reduce((mx, b) => Math.max(mx, b.tot), 0) };
 }
 
 /* ================= dom helpers ================= */
@@ -506,11 +761,47 @@ function bindTip(node, html) {
   });
   node.addEventListener('pointerleave', () => tip.style.display = 'none');
 }
+function kpiNode(parent, lb, v, unit, sub) {
+  const k = el('div', 'kpi');
+  k.append(el('div', 'lb', lb));
+  const vv = el('div', 'v', v);
+  if (unit) vv.append(el('small', '', unit));
+  k.append(vv);
+  if (sub) k.append(el('div', 'sub', sub));
+  parent.append(k);
+}
+const machChipTxt = (x, qty) => {
+  let s = x.m;
+  if (qty > 0) s += ' ' + (x.lq > 0 ? '≈' : '') + fmtN(x.vq + x.lq) + '/' + fmtN(qty);
+  return s + ' · ' + fmtH(x.min / 60) + t('hrs');
+};
+function machTipRows(r) {
+  return r.mach.map(x => {
+    const row = el('div');
+    row.append(el('b', '', (x.lq > 0 ? '≈' : '') + fmtN(x.vq + x.lq) + ' ' + t('pcs') + ' · ' + fmtH(x.min / 60) + t('hrs') + ' '));
+    row.append(x.m);
+    return row;
+  });
+}
+function fillCls(r) {
+  if (r.ratio !== null && r.ratio >= 1) return ' full';
+  if (r.flags.overdue) return ' crit';
+  if (r.flags.dueSoon || r.flags.stalled) return ' warn';
+  return '';
+}
+function progressNums(r) {
+  const minQty = r.o.qty > 0 && r.mach.length
+    ? Math.min(r.o.qty, Math.min(...r.mach.map(x => x.vq + x.lq)))
+    : 0;
+  const shown = (r.ratio !== null && r.ratio >= 1) ? r.o.qty : minQty;
+  return { num: fmtN(shown) + ' / ' + fmtN(r.o.qty), pct: r.ratio === null ? '' : Math.round(r.ratio * 100) + '%' };
+}
 
 /* ================= tab 1: orders ================= */
 let ofilter = 'ALL';
 function renderOrders() {
-  const cats = [...new Set(activeOrders.map(o => o.cat))];
+  const rows = MODEL.inProd;
+  const cats = [...new Set(rows.map(r => r.o.cat))];
   const fl = $('#ofilters'); fl.replaceChildren();
   const mk = (val, lbl) => {
     const b = el('button', 'fchip' + (ofilter === val ? ' on' : ''), lbl);
@@ -520,84 +811,66 @@ function renderOrders() {
   mk('ALL', t('all'));
   cats.forEach(c => mk(c, c));
 
-  const list = activeOrders.filter(o => ofilter === 'ALL' || o.cat === ofilter);
-  const hrsToday = M.reduce((s,m) => s + m.today, 0);
-  let qtyToday = 0;
-  for (const [d,,oi,,qty] of RAW.ops) if (d === REF && oi >= 0) qtyToday += qty;
+  let hrsToday = 0, qtyToday = 0;
+  for (const l of RAW.logs) if (l.d === TODAY) { hrsToday += l.min / 60; qtyToday += l.vq + l.lq; }
+  const alerts = rows.filter(r => r.flags.overdue || r.flags.stalled || r.flags.notStarted).length;
+  const done45 = MODEL.doneOrders.filter(o => { const d = compDay(o); return d !== null && d >= TODAY - 44; }).length;
   const kp = $('#okpis'); kp.replaceChildren();
-  const kpi = (lb, v, unit, sub) => {
-    const k = el('div','kpi');
-    k.append(el('div','lb',lb));
-    const vv = el('div','v', v);
-    if (unit) { const s = el('small','',unit); vv.append(s); }
-    k.append(vv);
-    if (sub) k.append(el('div','sub',sub));
-    kp.append(k);
-  };
-  kpi(t('kpi_active'), fmtN(activeOrders.length), '', '');
-  kpi(t('kpi_hrs_today'), fmtH(hrsToday), t('hrs'), REF);
-  kpi(t('kpi_qty_today'), fmtN(qtyToday), t('pcs'), REF);
-  kpi(t('kpi_done45'), fmtN(done45), '', '');
+  kpiNode(kp, t('kpi_active'), fmtN(rows.length), '', '');
+  kpiNode(kp, t('kpi_hrs_today'), fmtH(hrsToday), t('hrs'), dayStr(TODAY));
+  kpiNode(kp, t('kpi_qty_today'), fmtN(qtyToday), t('pcs'), dayStr(TODAY));
+  kpiNode(kp, t('kpi_alerts'), fmtN(alerts), '', t('alerts_sub'));
+  kpiNode(kp, t('kpi_done45'), fmtN(done45), '', '');
 
+  const list = rows.filter(r => ofilter === 'ALL' || r.o.cat === ofilter);
   const g = $('#ocards'); g.replaceChildren();
-  if (!list.length) g.append(el('div','empty','—'));
-  for (const o of list) {
-    const c = el('article','card');
-    const top = el('div','top');
-    const h3 = el('h3','',o.t);
-    h3.title = o.t;
+  if (!list.length) g.append(el('div', 'empty', '—'));
+  for (const r of list) {
+    const o = r.o;
+    const c = el('article', 'card');
+    const top = el('div', 'top');
+    const h3 = el('h3', '', o.no);
+    h3.title = o.no;
     top.append(h3);
-    top.append(el('span','cat ' + (CATCLS[o.cat] || 'c1'), o.cat));
+    if (o.cat) top.append(el('span', 'cat ' + (CATCLS[o.cat] || 'c1'), o.cat));
+    top.append(el('span', 'cat stx', tst(o.st)));
     c.append(top);
 
-    const meta = el('div','meta');
-    const m1 = el('span'); m1.append(t('ordered') + ': '); m1.append(el('b','',fmtN(o.qty) + ' ' + t('pcs'))); meta.append(m1);
-    const m2 = el('span'); m2.append(t('buyer') + ': '); m2.append(el('b','',o.buyer || '—')); meta.append(m2);
-    const m3 = el('span'); m3.append(t('started') + ': '); m3.append(el('b','',o.od)); meta.append(m3);
+    const meta = el('div', 'meta');
+    const mi = (lb, val) => { const s = el('span'); s.append(lb + ': '); s.append(el('b', '', val)); meta.append(s); };
+    mi(t('ordered'), o.qty > 0 ? fmtN(o.qty) + ' ' + t('pcs') : '—');
+    mi(t('buyer'), o.buyer || '—');
+    mi(t('started'), o.od !== null ? dayStr(o.od) : '—');
+    if (o.due !== null) mi(t('due_lbl'), dayStr(o.due) + (r.dtd !== null ? ' (D' + (r.dtd < 0 ? '+' + (-r.dtd) : '-' + r.dtd) + ')' : ''));
     c.append(meta);
 
-    const bar = el('div','pbar');
-    const fill = el('div','fill' + (o.pct === 100 ? ' full' : ''));
-    fill.style.width = (o.pct ?? 0) + '%';
+    const bar = el('div', 'pbar');
+    const fill = el('div', 'fill' + fillCls(r));
+    fill.style.width = Math.round((r.ratio ?? 0) * 100) + '%';
     bar.append(fill);
     c.append(bar);
-    bindTip(bar, () => {
-      const parts = Object.entries(o.cats).map(([k,v]) => {
-        const row = el('div');
-        row.append(el('b','',fmtN(v) + ' ' + t('pcs') + ' · ' + fmtH(o.catHrs[k] || 0) + t('hrs') + ' '));
-        row.append(k);
-        return row;
-      });
-      return parts.length ? parts : [el('div','',t('no_ops'))];
-    });
+    bindTip(bar, () => r.mach.length ? machTipRows(r) : [el('div', '', t('no_ops'))]);
 
-    const pl = el('div','pline');
-    pl.append(el('span','pnum', fmtN(o.qty_done) + ' / ' + fmtN(o.qty)));
-    pl.append(el('span','ppct', o.pct === null ? '' : o.pct + '%'));
-    const sp = el('span'); sp.style.marginLeft = 'auto';
-    if (o.hrs === 0) {
-      if (o.elapsed > 7) {
-        const b = el('span','badge warn'); b.append(el('span','ic','◷')); b.append(t('no_ops') + ' · D+' + o.elapsed); sp.append(b);
-      } else {
-        sp.append(el('span','badge', t('no_ops')));
-      }
-    } else if (o.pct === 100) {
-      const b = el('span','badge good'); b.append(el('span','ic','✓')); b.append(t('qty_reached')); sp.append(b);
-    } else if (o.idleDays !== null && o.idleDays >= 7) {
-      const b = el('span','badge crit'); b.append(el('span','ic','⚠')); b.append(t('stalled') + ' · ' + o.idleDays + t('d_idle')); sp.append(b);
-    } else if (o.elapsed > 35) {
-      const b = el('span','badge warn'); b.append(el('span','ic','◷')); b.append(t('longrun') + ' · D+' + o.elapsed); sp.append(b);
-    } else {
-      sp.append(el('span','badge', 'D+' + o.elapsed + ' ' + t('elapsed')));
-    }
+    const pn = progressNums(r);
+    const pl = el('div', 'pline');
+    pl.append(el('span', 'pnum', pn.num));
+    pl.append(el('span', 'ppct', pn.pct));
+    const sp = el('span'); sp.style.marginLeft = 'auto'; sp.style.display = 'inline-flex'; sp.style.gap = '.3rem';
+    const badge = (cls, ic, txt) => { const b = el('span', 'badge' + (cls ? ' ' + cls : '')); if (ic) b.append(el('span', 'ic', ic)); b.append(txt); sp.append(b); };
+    if (r.flags.overdue) badge('crit', '⚠', t('due_over') + ' D+' + (-r.dtd));
+    else if (r.flags.stalled) badge('crit', '⚠', t('stalled') + ' · ' + (TODAY - r.last) + t('d_idle'));
+    else if (r.flags.dueSoon) badge('warn', '◷', t('due_soon') + ' D-' + r.dtd);
+    else if (r.flags.notStarted) badge('warn', '◷', t('no_ops') + ' · D+' + r.dso);
+    else if (r.flags.longRunning) badge('warn', '◷', t('longrun') + ' · D+' + r.dso);
+    else if (r.dso !== null) badge('', '', 'D+' + r.dso + ' ' + t('elapsed'));
+    if (r.flags.quantityReached) badge('good', '✓', t('qty_reached'));
     pl.append(sp);
     c.append(pl);
 
-    if (o.machSet.size) {
-      const mr = el('div','mrow');
-      [...o.machSet].sort((a,b) => o.byMach[b].hrs - o.byMach[a].hrs).slice(0,6)
-        .forEach(mi => mr.append(el('span','mtag', M[mi].n + ' · ' + fmtH(o.byMach[mi].hrs) + t('hrs'))));
-      if (o.machSet.size > 6) mr.append(el('span','mtag','+' + (o.machSet.size - 6)));
+    if (r.mach.length) {
+      const mr = el('div', 'mrow');
+      r.mach.slice(0, 6).forEach(x => mr.append(el('span', 'mtag', machChipTxt(x, o.qty))));
+      if (r.mach.length > 6) mr.append(el('span', 'mtag', '+' + (r.mach.length - 6)));
       c.append(mr);
     }
     g.append(c);
@@ -605,185 +878,125 @@ function renderOrders() {
 
   $('#donetitle').textContent = t('done_title');
   const dl = $('#donelist'); dl.replaceChildren();
-  for (const o of doneOrders.slice(0,8)) {
-    const wrap = el('div','doneitem');
-    const r = el('div','donerow');
-    r.append(el('span','caret','▸'));
-    r.append(el('b','',o.t));
-    r.append(el('span','',o.buyer || ''));
-    r.append(el('span','', fmtN(o.qty) + ' ' + t('pcs')));
-    r.append(el('span','dt', t('completed') + ' ' + o.cd));
-    const det = el('div','donedetail');
-    const bar = el('div','pbar');
-    const fill = el('div','fill' + (o.pct === 100 ? ' full' : ''));
-    fill.style.width = (o.pct ?? 0) + '%';
+  for (const o of MODEL.doneOrders.slice(0, 8)) {
+    const r = progressRow(o, MODEL.logsByOrder.get(o.no) || []);
+    const cd = compDay(o);
+    const wrap = el('div', 'doneitem');
+    const row = el('div', 'donerow');
+    row.append(el('span', 'caret', '▸'));
+    row.append(el('b', '', o.no));
+    row.append(el('span', '', o.buyer || ''));
+    row.append(el('span', '', o.qty > 0 ? fmtN(o.qty) + ' ' + t('pcs') : ''));
+    row.append(el('span', 'dt', t('completed') + (cd !== null ? ' ' + dayStr(cd) : '')));
+    const det = el('div', 'donedetail');
+    const bar = el('div', 'pbar');
+    const fill = el('div', 'fill full');
+    fill.style.width = '100%';
     bar.append(fill);
     det.append(bar);
-    bindTip(bar, () => Object.entries(o.cats).map(([k,v]) => {
-      const row = el('div');
-      row.append(el('b','',fmtN(v) + ' ' + t('pcs') + ' · ' + fmtH(o.catHrs[k] || 0) + t('hrs') + ' '));
-      row.append(k);
-      return row;
-    }));
-    const pl = el('div','pline');
-    pl.append(el('span','pnum', fmtN(o.qty_done) + ' / ' + fmtN(o.qty)));
-    pl.append(el('span','ppct', (o.pct === null ? '—' : o.pct + '%') + ' · ' + fmtH(o.hrs) + ' ' + t('hrs')));
-    const lead = Math.round((new Date(o.cd + 'T00:00:00Z') - new Date(o.od + 'T00:00:00Z')) / 864e5);
-    const per = el('span','ppct', o.od + ' → ' + o.cd + ' (' + lead + t('d_lead') + ')');
-    per.style.marginLeft = 'auto';
-    pl.append(per);
+    bindTip(bar, () => r.mach.length ? machTipRows(r) : [el('div', '', '—')]);
+    const pl = el('div', 'pline');
+    pl.append(el('span', 'pnum', fmtN(o.qty) + ' / ' + fmtN(o.qty)));
+    pl.append(el('span', 'ppct', '100% · ' + fmtH(r.totMin / 60) + ' ' + t('hrs')));
+    if (o.od !== null && cd !== null) {
+      const per = el('span', 'ppct', dayStr(o.od) + ' → ' + dayStr(cd) + ' (' + (cd - o.od) + t('d_lead') + ')');
+      per.style.marginLeft = 'auto';
+      pl.append(per);
+    }
     det.append(pl);
-    if (o.machSet.size) {
-      const mr = el('div','mrow');
-      [...o.machSet].sort((a,b) => o.byMach[b].hrs - o.byMach[a].hrs)
-        .forEach(mi => mr.append(el('span','mtag', M[mi].n + ' · ' + fmtH(o.byMach[mi].hrs) + t('hrs') + ' · ' + fmtN(o.byMach[mi].qty) + ' ' + t('pcs'))));
+    if (r.mach.length) {
+      const mr = el('div', 'mrow');
+      r.mach.forEach(x => mr.append(el('span', 'mtag', machChipTxt(x, o.qty))));
       det.append(mr);
     }
-    r.onclick = () => wrap.classList.toggle('open');
-    wrap.append(r, det);
+    row.onclick = () => wrap.classList.toggle('open');
+    wrap.append(row, det);
     dl.append(wrap);
   }
 }
 
 /* ================= tab 2: machines ================= */
-let PER = 'month';   /* default statistics period */
-function periodRange(p) {
-  if (p === 'today') return [REF, REF];
-  if (p === 'week') return [monWk, REF];
-  if (p === 'month') return [mo1, REF];
-  if (p === 'quarter') { const q = Math.floor((+REF.slice(5,7) - 1) / 3) * 3 + 1; return [REF.slice(0,5) + String(q).padStart(2,'0') + '-01', REF]; }
-  return [REF.slice(0,4) + '-01-01', REF];
-}
-function bucketOf(d, p) {
-  if (p === 'quarter') { const dt = new Date(d + 'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate() - (dt.getUTCDay() + 6) % 7); return dt.toISOString().slice(0,10); }
-  if (p === 'year') return d.slice(0,7);
-  return d;
-}
-function aggPeriod(p) {
-  const [a, b] = periodRange(p);
-  const per = M.map(() => ({hrs:0, maint:0, qty:0, orders:new Set(), buckets:{}}));
-  const orders = new Set(), workDays = new Set(), months = new Set();
-  let hrs = 0, qty = 0, maint = 0;
-  for (const [d, mi, oi, h, q] of RAW.ops) {
-    if (d < a || d > b) continue;
-    const pm = per[mi];
-    if (oi >= 0 && O[oi].cat === 'Maintenance') { pm.maint += h; maint += h; continue; }
-    pm.hrs += h; pm.qty += q; hrs += h; qty += q;
-    workDays.add(d); months.add(d.slice(0,7));
-    if (oi >= 0) { pm.orders.add(oi); orders.add(oi); }
-    const bk = bucketOf(d, p);
-    pm.buckets[bk] = (pm.buckets[bk] || 0) + h;
-  }
-  const done = O.filter(o => o.cd && o.cd >= a && o.cd <= b).length;
-  return {a, b, per, orders: orders.size, hrs, qty, maint, workDays: workDays.size, months: months.size, done};
-}
-function bucketKeys(p, a) {
-  const keys = [];
-  if (p === 'today' || p === 'week') {              /* 14-day context strip */
-    for (let i = 13; i >= 0; i--) keys.push(addDays(REF, -i));
-  } else if (p === 'month') {
-    for (let d = a; d <= REF; d = addDays(d, 1)) keys.push(d);
-  } else if (p === 'quarter') {
-    for (let d = bucketOf(a, p); d <= REF; d = addDays(d, 7)) keys.push(d);
-  } else {
-    for (let mth = +a.slice(5,7); mth <= +REF.slice(5,7); mth++) keys.push(REF.slice(0,5) + String(mth).padStart(2,'0'));
-  }
-  return keys;
-}
+let PER = 'month';
+const BADGE_UI = {
+  repair: { cls: 'maint', ic: '🔧 ', key: 'st_repair' },
+  mover: { cls: 'crit', ic: '🔧 ', key: 'st_mover' },
+  msoon: { cls: 'warn', ic: '🔧 ', key: 'st_msoon' },
+  run: { cls: 'run', ic: '', key: 'st_run' },
+  idle: { cls: '', ic: '', key: 'st_idle' }
+};
 function renderMachines() {
   const pf = $('#mperiod'); pf.replaceChildren();
-  ['today','week','month','quarter','year'].forEach(p => {
-    const btn = el('button','fchip' + (PER === p ? ' on' : ''), t(p));
+  ['today', 'week', 'month', 'quarter', 'year'].forEach(p => {
+    const btn = el('button', 'fchip' + (PER === p ? ' on' : ''), t(p));
     btn.onclick = () => { PER = p; renderMachines(); };
     pf.append(btn);
   });
 
-  const A = aggPeriod(PER);
+  const A = machinePeriod(PER);
   const kp = $('#mkpis'); kp.replaceChildren();
-  const kpi = (lb, v, unit, sub) => {
-    const k = el('div','kpi');
-    k.append(el('div','lb',lb));
-    const vv = el('div','v',v);
-    if (unit) vv.append(el('small','',unit));
-    k.append(vv);
-    if (sub) k.append(el('div','sub',sub));
-    kp.append(k);
-  };
-  const range = PER === 'today' ? REF : A.a + ' → ' + A.b;
-  const act = A.per.filter(pm => pm.hrs > 0).length;
-  kpi(t('kpi_m_active'), act + ' / ' + M.length, '', range);
-  kpi(t('kpi_m_orders'), fmtN(A.orders), '', '');
-  kpi(t('lbl_hours'), fmtH(A.hrs), t('hrs'), A.maint > 0 ? '🔧 +' + fmtH(A.maint) + ' ' + t('hrs') : '');
-  kpi(t('kpi_m_qty'), fmtN(A.qty), t('pcs'), '');
-  if (PER === 'week' || PER === 'month') {
-    kpi(t('avg_day'), fmtH(A.workDays ? A.hrs / A.workDays : 0), t('hrs'), '');
-    if (PER === 'month') kpi(t('kpi_m_done'), fmtN(A.done), '', '');
-  } else if (PER === 'quarter' || PER === 'year') {
-    kpi(t('avg_month'), fmtH(A.months ? A.hrs / A.months : 0), t('hrs'), '');
-    kpi(t('kpi_m_done'), fmtN(A.done), '', '');
-  }
+  const range = PER === 'today' ? dayStr(TODAY) : dayStr(A.a) + ' → ' + dayStr(Math.min(TODAY, A.b - 1));
+  kpiNode(kp, t('kpi_m_active'), A.active + ' / ' + A.prodCount, '', range);
+  kpiNode(kp, t('kpi_m_orders'), fmtN(A.workedOrders), '', '');
+  kpiNode(kp, t('lbl_hours'), fmtH(A.totMin / 60), t('hrs'),
+    PER === 'today' ? '' : t('avg_day') + ' ' + fmtH(A.totMin / 60 / A.elapsed) + t('hrs'));
+  kpiNode(kp, t('kpi_m_qty'), fmtN(A.totQty), t('pcs'), '');
+  kpiNode(kp, t('kpi_m_done'), fmtN(A.doneInPeriod), '', '');
 
   const g = $('#mtiles'); g.replaceChildren();
-  const keys = bucketKeys(PER, A.a);
-  const idx = M.map((m, i) => i).sort((x, y) =>
-    (M[y].status==='run') - (M[x].status==='run') ||
-    (M[y].status==='maint') - (M[x].status==='maint') ||
-    A.per[y].hrs - A.per[x].hrs);
-  for (const mi of idx) {
-    const m = M[mi], pm = A.per[mi];
-    const c = el('article','mtile' + (pm.hrs + pm.maint === 0 ? ' dim' : ''));
-    const top = el('div','top');
-    top.append(el('h3','',m.n));
-    const st = el('span','st ' + (m.status === 'run' ? 'run' : m.status === 'maint' ? 'maint' : ''));
-    st.append(el('span','dot'));
-    if (m.status === 'maint') st.append('🔧 ');
-    st.append(t(m.status === 'run' ? 'st_run' : m.status === 'maint' ? 'st_maint' : m.status === 'idle' ? 'st_idle' : 'st_off'));
+  for (const r of A.rows) {
+    const c = el('article', 'mtile' + (r.min === 0 ? ' dim' : ''));
+    const top = el('div', 'top');
+    top.append(el('h3', '', r.m.name));
+    const ui = BADGE_UI[r.badge];
+    const st = el('span', 'st' + (ui.cls ? ' ' + ui.cls : ''));
+    st.append(el('span', 'dot'));
+    if (ui.ic) st.append(ui.ic);
+    st.append(t(ui.key));
     top.append(st);
     c.append(top);
-    c.append(el('div','sub', m.cat + (m.brand ? ' · ' + m.brand : '')));
+    c.append(el('div', 'sub', r.m.grp + (r.m.brand ? ' · ' + r.m.brand : '')));
 
-    const stats = el('div','stats');
-    [[t('lbl_hours'), fmtH(pm.hrs), ' ' + t('hrs')], [t('lbl_orders'), fmtN(pm.orders.size), ''], [t('lbl_pieces'), fmtN(pm.qty), '']].forEach(([lb, v, unit]) => {
-      const s = el('div','mstat');
-      s.append(el('div','lb',lb));
-      const vv = el('div','v', v);
-      if (unit) vv.append(el('small','', unit));
+    const stats = el('div', 'stats');
+    [[t('lbl_hours'), fmtH(r.min / 60), ' ' + t('hrs')],
+     [t('lbl_pieces'), fmtN(r.qty), ''],
+     [t('lbl_orders'), fmtN(r.orders), ''],
+     [t('lbl_days'), fmtN(r.days), '']].forEach(([lb, v, unit]) => {
+      const s = el('div', 'mstat');
+      s.append(el('div', 'lb', lb));
+      const vv = el('div', 'v', v);
+      if (unit) vv.append(el('small', '', unit));
       s.append(vv);
       stats.append(s);
     });
     c.append(stats);
 
-    /* sparkline — today/week: 14-day daily context; month: daily; quarter: weekly; year: monthly */
-    const src = (PER === 'today' || PER === 'week') ? m.days : pm.buckets;
-    const days = keys.map(k => [k, src[k] || 0]);
-    const mx = Math.max(4, ...days.map(x => x[1]));
-    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-    svg.setAttribute('class','spark');
-    svg.setAttribute('viewBox','0 0 ' + (days.length * 10) + ' 36');
-    svg.setAttribute('preserveAspectRatio','none');
-    days.forEach(([d, v], i) => {
+    const n = r.spark.length;
+    const mx = Math.max(4, ...r.spark);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'spark');
+    svg.setAttribute('viewBox', '0 0 ' + (n * 10) + ' 36');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    const lastIdx = A.buckets.reduce((acc, b, i) => b[0] <= TODAY ? i : acc, 0);
+    r.spark.forEach((v, i) => {
       const h = Math.max(2, v / mx * 32);
-      const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      r.setAttribute('x', i * 10 + 1);
-      if (v > 0) { r.setAttribute('y', 36 - h); r.setAttribute('height', h); }
-      else { r.setAttribute('y', 35); r.setAttribute('height', 1); }
-      r.setAttribute('width', 8);
-      r.setAttribute('fill', i === days.length - 1 ? 'var(--s1)' : 'var(--spark)');
-      const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', i * 10 + 1);
+      if (v > 0) { rect.setAttribute('y', 36 - h); rect.setAttribute('height', h); }
+      else { rect.setAttribute('y', 35); rect.setAttribute('height', 1); }
+      rect.setAttribute('width', 8);
+      rect.setAttribute('fill', i === lastIdx ? 'var(--s1)' : 'var(--spark)');
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       hit.setAttribute('x', i * 10); hit.setAttribute('y', 0);
       hit.setAttribute('width', 10); hit.setAttribute('height', 36);
-      hit.setAttribute('fill','transparent');
-      bindTip(hit, () => [(() => { const dv = el('div'); dv.append(el('b','',fmtH(v) + t('hrs') + ' ')); dv.append(d); return dv; })()]);
-      svg.append(r, hit);
+      hit.setAttribute('fill', 'transparent');
+      const lbl = dayStr(A.buckets[i][0]) + (A.buckets[i][1] - A.buckets[i][0] > 1 ? ' ~' : '');
+      bindTip(hit, () => [(() => { const dv = el('div'); dv.append(el('b', '', fmtH(v / 60) + t('hrs') + ' ')); dv.append(lbl); return dv; })()]);
+      svg.append(rect, hit);
     });
     c.append(svg);
 
-    if (pm.maint > 0) {
-      c.append(el('div','last maint', '🔧 ' + t('maint_label') + ': ' + fmtH(pm.maint) + ' ' + t('hrs')));
-    }
-    if (m.lastD) {
-      c.append(el('div','last', t('last_job') + ': ' + m.lastD + (m.lastOrder ? ' · ' + m.lastOrder : '')));
-    }
+    const lastJob = MODEL.lastByMachine.get(r.m.code);
+    if (lastJob) c.append(el('div', 'last', t('last_job') + ': ' + dayStr(lastJob.d) + (lastJob.o ? ' · ' + lastJob.o : '')));
     g.append(c);
   }
 }
@@ -794,110 +1007,73 @@ function renderAlloc() {
   const sel = $('#ordersel');
   $('#ordersel-lb').textContent = t('sel_order');
   const opts = [
-    ...activeOrders.filter(o => o.hrs > 0).sort((a,b) => (b.lastOp||'').localeCompare(a.lastOp||'')),
-    ...activeOrders.filter(o => o.hrs === 0),
-    ...doneOrders.slice(0,10),
+    ...MODEL.inProd.map(r => ({ no: r.o.no, done: false })),
+    ...MODEL.doneOrders.slice(0, 10).map(o => ({ no: o.no, done: true })),
   ];
   sel.replaceChildren();
   for (const o of opts) {
-    const op = el('option','', (o.act ? '' : '✓ ') + o.t + '  (' + (o.act ? t('in_progress') : t('completed')) + ')');
-    op.value = o.t;
+    const op = el('option', '', (o.done ? '✓ ' : '') + o.no + '  (' + (o.done ? t('completed') : t('in_progress')) + ')');
+    op.value = o.no;
     sel.append(op);
   }
-  if (!selOrder && opts.length) selOrder = opts[0].t;
-  sel.value = selOrder;
+  if (!selOrder || !opts.some(x => x.no === selOrder)) selOrder = opts.length ? opts[0].no : null;
+  if (selOrder) sel.value = selOrder;
   sel.onchange = () => { selOrder = sel.value; renderAllocBody(); };
   renderAllocBody();
 }
 function renderAllocBody() {
-  const o = O.find(x => x.t === selOrder);
   const kp = $('#akpis'); kp.replaceChildren();
-  const cc = $('#acats'); cc.replaceChildren();
   const bl = $('#abars'); bl.replaceChildren();
   const lg = $('#aleg'); lg.replaceChildren();
   const ch = $('#achart'); ch.replaceChildren();
   $('#achart-title').textContent = '';
+  const o = RAW.orders.find(x => x.no === selOrder);
   if (!o) return;
-  const kpi = (lb, v, unit) => {
-    const k = el('div','kpi');
-    k.append(el('div','lb',lb));
-    const vv = el('div','v',v);
-    if (unit) vv.append(el('small','',unit));
-    k.append(vv);
-    kp.append(k);
-  };
-  kpi(t('kpi_a_prog'), fmtN(o.qty_done) + ' / ' + fmtN(o.qty), o.pct === null ? '' : ' · ' + o.pct + '%');
-  kpi(t('kpi_a_hrs'), fmtH(o.hrs), t('hrs'));
-  kpi(t('kpi_a_mach'), fmtN(o.machSet.size), '');
-  kpi(t('kpi_a_period'), o.firstOp ? o.firstOp.slice(5) + ' → ' + o.lastOp.slice(5) : '—', '');
+  const logs = MODEL.logsByOrder.get(o.no) || [];
+  const r = progressRow(o, logs);
+  const pn = progressNums(r);
+  kpiNode(kp, t('kpi_a_prog'), pn.num, pn.pct ? ' · ' + pn.pct : '', '');
+  kpiNode(kp, t('kpi_a_hrs'), fmtH(r.totMin / 60), t('hrs'), '');
+  kpiNode(kp, t('kpi_a_mach'), fmtN(r.mach.length), '', '');
+  kpiNode(kp, t('kpi_a_period'), r.first !== null ? dayStr(r.first).slice(5) + ' → ' + dayStr(r.last).slice(5) : '—', '', '');
 
-  for (const [cat, v] of Object.entries(o.cats).sort((a,b) => b[1] - a[1])) {
-    const chip = el('span','catchip');
-    chip.append(el('b','',fmtN(v) + ' ' + t('pcs') + ' · ' + fmtH(o.catHrs[cat] || 0) + t('hrs') + ' '));
-    chip.append(cat);
-    cc.append(chip);
-  }
-
-  /* ---- date × machine stacked columns ---- */
-  const rank = [...o.machSet].sort((a,b) => o.byMach[b].hrs - o.byMach[a].hrs);
-  const slotOf = new Map(rank.slice(0,7).map((mi, i) => [mi, 'var(--s' + (i+1) + ')']));
-  const OTHER = 'var(--spark)';
-  let byB = o.byDate || {};
-  let dkeys = Object.keys(byB).sort();
-  let bucketed = false;
-  if (dkeys.length > 36) {           /* long-running order → weekly buckets */
-    bucketed = true;
-    byB = {};
-    for (const [d, mm] of Object.entries(o.byDate)) {
-      const wk = bucketOf(d, 'quarter');
-      const tgt = byB[wk] ||= {};
-      for (const [mi, h] of Object.entries(mm)) tgt[mi] = (tgt[mi] || 0) + h;
-    }
-    dkeys = Object.keys(byB).sort();
-  }
-  if (dkeys.length) {
-    $('#achart-title').textContent = t('daily_hours') + (bucketed ? ' · ' + t('bucket_week') : '');
-    if (rank.length > 1) {
-      for (const mi of rank.slice(0,7)) {
+  const chart = orderMachineChart(logs, 7);
+  if (chart.buckets.length) {
+    $('#achart-title').textContent = t('daily_hours') + (chart.weekly ? ' · ' + t('bucket_week') : '');
+    const colorOf = new Map(chart.machines.map((m, i) => [m, m === OTHER_KEY ? 'var(--spark)' : 'var(--s' + (i + 1) + ')']));
+    if (chart.machines.length > 1) {
+      for (const m of chart.machines) {
         const it = el('span');
-        const sw = el('span','sw'); sw.style.background = slotOf.get(mi);
-        it.append(sw, M[mi].n);
-        lg.append(it);
-      }
-      if (rank.length > 7) {
-        const it = el('span');
-        const sw = el('span','sw'); sw.style.background = OTHER;
-        it.append(sw, t('other'));
+        const sw = el('span', 'sw'); sw.style.background = colorOf.get(m);
+        it.append(sw, m === OTHER_KEY ? t('other') : m);
         lg.append(it);
       }
     }
-    const totals = dkeys.map(k => Object.values(byB[k]).reduce((s,v) => s + v, 0));
-    const mx = Math.max(...totals, 1);
     const plotH = 170;
-    const showTot = dkeys.length <= 20;
-    const step = Math.ceil(dkeys.length / 8);
-    dkeys.forEach((k, ki) => {
-      const colw = el('div','dcolw');
-      colw.append(el('div','dtot', (showTot || totals[ki] === mx) ? fmtH(totals[ki]) : ' '));
-      const col = el('div','dcol');
+    const showTot = chart.buckets.length <= 20;
+    const step = Math.ceil(chart.buckets.length / 8);
+    chart.buckets.forEach((bk, ki) => {
+      const colw = el('div', 'dcolw');
+      colw.append(el('div', 'dtot', (showTot || bk.tot === chart.max) ? fmtH(bk.tot / 60) : ' '));
+      const col = el('div', 'dcol');
       col.style.height = plotH + 'px';
-      const entries = Object.entries(byB[k]).sort((x, y) => rank.indexOf(+x[0]) - rank.indexOf(+y[0]));
-      for (const [mi, h] of [...entries].reverse()) {   /* bottom = biggest machine */
+      const entries = chart.machines.filter(m => bk.map.has(m)).map(m => [m, bk.map.get(m)]);
+      for (const [m, v] of [...entries].reverse()) {   /* bottom = biggest machine */
         const seg = el('div');
-        seg.style.height = Math.max(2, h / mx * (plotH - 16)) + 'px';
-        seg.style.background = slotOf.get(+mi) || OTHER;
+        seg.style.height = Math.max(2, v / chart.max * (plotH - 16)) + 'px';
+        seg.style.background = colorOf.get(m);
         col.append(seg);
       }
       colw.append(col);
-      colw.append(el('div','dxl', ki % step === 0 ? k.slice(5) : ''));
+      colw.append(el('div', 'dxl', ki % step === 0 ? dayStr(bk.s).slice(5) : ''));
       bindTip(colw, () => {
-        const out = [el('div','', k + ' — ' + fmtH(totals[ki]) + ' ' + t('hrs'))];
-        for (const [mi, h] of entries) {
+        const out = [el('div', '', dayStr(bk.s) + (chart.weekly ? ' ~' : '') + ' — ' + fmtH(bk.tot / 60) + ' ' + t('hrs'))];
+        for (const [m, v] of entries) {
           const row = el('div');
-          const sw = el('span','sw'); sw.style.background = slotOf.get(+mi) || OTHER;
+          const sw = el('span', 'sw'); sw.style.background = colorOf.get(m);
           row.append(sw, ' ');
-          row.append(el('b','', fmtH(h) + t('hrs') + ' '));
-          row.append(M[+mi].n);
+          row.append(el('b', '', fmtH(v / 60) + t('hrs') + ' '));
+          row.append(m === OTHER_KEY ? t('other') : m);
           out.push(row);
         }
         return out;
@@ -906,20 +1082,20 @@ function renderAllocBody() {
     });
   }
 
-  const rows = [...o.machSet].map(mi => ({mi, ...o.byMach[mi]})).sort((a,b) => b.hrs - a.hrs);
-  const mx = Math.max(1, ...rows.map(r => r.hrs));
-  for (const r of rows) {
-    const row = el('div','brow');
-    const nm = el('div','nm', M[r.mi].n);
-    nm.append(el('small','', M[r.mi].cat + ' · ' + r.first.slice(5) + ' → ' + r.last.slice(5)));
+  const mx = Math.max(1, ...r.mach.map(x => x.min));
+  for (const x of r.mach) {
+    const row = el('div', 'brow');
+    const machine = RAW.machines.find(m => m.code === x.m);
+    const nm = el('div', 'nm', x.m);
+    nm.append(el('small', '', (machine ? machine.grp + ' · ' : '')));
     row.append(nm);
-    const tr = el('div','btrack');
-    const f = el('div','bfill');
-    f.style.width = (r.hrs / mx * 100) + '%';
+    const tr = el('div', 'btrack');
+    const f = el('div', 'bfill');
+    f.style.width = (x.min / mx * 100) + '%';
     tr.append(f);
     row.append(tr);
-    const val = el('div','val', fmtH(r.hrs) + ' ' + t('hrs'));
-    val.append(el('small','', fmtN(r.qty) + ' ' + t('pcs')));
+    const val = el('div', 'val', fmtH(x.min / 60) + ' ' + t('hrs'));
+    val.append(el('small', '', (x.lq > 0 ? '≈' : '') + fmtN(x.vq + x.lq) + ' ' + t('pcs')));
     row.append(val);
     bl.append(row);
   }
@@ -935,11 +1111,19 @@ function renderChrome() {
   tabs[0].querySelector('.tl').textContent = t('tabs_orders');
   tabs[1].querySelector('.tl').textContent = t('tabs_machines');
   tabs[2].querySelector('.tl').textContent = t('tabs_alloc');
-  $('#n-orders').textContent = activeOrders ? activeOrders.length : '·';
-  $('#n-machines').textContent = M ? (M.filter(m => m.today > 0).length + '/' + M.length) : '·';
-  $('#foot').textContent = t('foot');
+  $('#n-orders').textContent = MODEL ? MODEL.inProd.length : '·';
+  if (RAW && MODEL) {
+    const prod = RAW.machines.filter(m => m.act && m.prod);
+    const todayCount = prod.filter(m => RAW.logs.some(l => l.m === m.code && l.d === TODAY)).length;
+    $('#n-machines').textContent = todayCount + '/' + prod.length;
+  } else {
+    $('#n-machines').textContent = '·';
+  }
+  $('#foot').textContent = t('foot') + ' ' + t('legacy_note');
   document.querySelectorAll('#langseg button').forEach(b =>
     b.classList.toggle('on', b.dataset.lang === LANG));
+  $('#signin-btn').textContent = t('signin_btn');
+  $('#signin-note').textContent = t('signin_note');
 }
 function renderAll() { renderChrome(); if (!RAW) return; renderOrders(); renderMachines(); renderAlloc(); }
 
@@ -947,7 +1131,7 @@ document.querySelectorAll('#langseg button').forEach(b => b.onclick = () => {
   LANG = b.dataset.lang; localStorage.setItem('knc_lang', LANG); renderAll();
 });
 
-const TABS = ['orders','machines','alloc'];
+const TABS = ['orders', 'machines', 'alloc'];
 let curTab = 0;
 function showTab(i) {
   curTab = i;
@@ -972,17 +1156,15 @@ $('#themebtn').onclick = () => {
   localStorage.setItem('knc_theme', next);
 };
 if (localStorage.getItem('knc_theme')) document.documentElement.dataset.theme = localStorage.getItem('knc_theme');
-/* kiosk URL params: ?tab=orders|machines|alloc &theme=light|dark &lang=en|vi|ko &cycle=1 */
-if (['light','dark'].includes(QP.get('theme'))) document.documentElement.dataset.theme = QP.get('theme');
+/* kiosk URL params: ?tab=orders|machines|alloc &theme=light|dark &lang=en|vi|ko &cycle=1 &mock=1 */
+if (['light', 'dark'].includes(QP.get('theme'))) document.documentElement.dataset.theme = QP.get('theme');
 if (TABS.includes(QP.get('tab'))) showTab(TABS.indexOf(QP.get('tab')));
 if (QP.get('cycle') === '1') { cycleT = setInterval(() => showTab((curTab + 1) % 3), 30000); $('#cyclebtn').classList.add('on'); }
-
-$('#refreshbtn').onclick = () => loadData(true);
 
 setInterval(() => {
   const n = new Date();
   $('#clock').textContent = n.toLocaleDateString('sv-SE') + ' ' +
-    n.toTimeString().slice(0,5);
+    n.toTimeString().slice(0, 5);
 }, 1000);
 
 /* ================= LIVE: MSAL auth + Microsoft Graph ================= */
@@ -992,12 +1174,12 @@ const AUTH = {
   scopes: ['https://graph.microsoft.com/Sites.Read.All'],
   siteHost: 'kncmarinekr.sharepoint.com',
   sitePath: '/sites/kncvn-Workshop',
-  lists: { orders: 'Machining Order', ops: 'Operation Record', machines: 'Machine List' },
+  lists: {
+    orders: 'WorkshopV2Orders', lines: 'WorkshopV2OrderLines', logs: 'WorkshopV2WorkLogs',
+    machines: 'WorkshopV2Machines', plans: 'WorkshopV2MaintenancePlans', events: 'WorkshopV2MaintenanceEvents'
+  },
 };
 const GAPI = 'https://graph.microsoft.com/v1.0';
-const normkey = s => (s || '').toLowerCase().replace(/[\s_\-]+/g, '');
-const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-const kd = s => s ? new Date(new Date(s).getTime() + 9 * 3600e3).toISOString().slice(0, 10) : null;
 const toast = msg => { const to = $('#toast'); to.textContent = msg; to.classList.add('show');
   clearTimeout(to._t); to._t = setTimeout(() => to.classList.remove('show'), 6000); };
 
@@ -1017,15 +1199,15 @@ async function getToken(interactive) {
   await _msalReady;
   const accts = msalApp.getAllAccounts();
   if (accts.length) {
-    try { return (await msalApp.acquireTokenSilent({scopes: AUTH.scopes, account: accts[0]})).accessToken; }
+    try { return (await msalApp.acquireTokenSilent({ scopes: AUTH.scopes, account: accts[0] })).accessToken; }
     catch (e) { if (!interactive) throw e; }
   }
   if (!interactive) throw new Error('no-account');
-  try { return (await msalApp.loginPopup({scopes: AUTH.scopes})).accessToken; }
+  try { return (await msalApp.loginPopup({ scopes: AUTH.scopes })).accessToken; }
   catch (e) {
     /* popup blocked (kiosk browsers, embedded panes) → full-page redirect flow */
     if (/popup|window/i.test(String(e && e.errorCode))) {
-      await msalApp.loginRedirect({scopes: AUTH.scopes});
+      await msalApp.loginRedirect({ scopes: AUTH.scopes });
       return new Promise(() => {});   /* navigation takes over */
     }
     throw e;
@@ -1033,10 +1215,10 @@ async function getToken(interactive) {
 }
 
 async function gget(url, token) {
-  const r = await fetch(url, {headers: {
+  const r = await fetch(url, { headers: {
     Authorization: 'Bearer ' + token,
     Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly',
-  }});
+  } });
   if (!r.ok) throw new Error('Graph ' + r.status + ' — ' + (await r.text()).slice(0, 400));
   return r.json();
 }
@@ -1045,12 +1227,11 @@ async function gpages(url, token) {
   while (url) { const j = await gget(url, token); out = out.concat(j.value || []); url = j['@odata.nextLink']; }
   return out;
 }
-async function fetchItems(sid, lid, select, extra, token) {
-  const base = `${GAPI}/sites/${sid}/lists/${lid}/items?$top=200` + (extra || '');
-  try { return await gpages(base + `&$expand=fields($select=${select})`, token); }
-  catch (e) { return await gpages(base + '&$expand=fields', token); }   /* fallback: full fields */
+function itemsUrl(sid, lid, select, extra) {
+  return `${GAPI}/sites/${sid}/lists/${lid}/items?$top=200&$expand=fields($select=${select})` + (extra || '');
 }
 
+const normkey = s => (s || '').toLowerCase().replace(/[\s_\-]+/g, '');
 async function resolveSite(token) {
   if (window._live) return window._live;
   const site = await gget(`${GAPI}/sites/${AUTH.siteHost}:${AUTH.sitePath}`, token);
@@ -1061,76 +1242,58 @@ async function resolveSite(token) {
     if (!hit) throw new Error('List not found: "' + want + '"\nAvailable: ' + lists.map(l => l.displayName).join(' · '));
     return hit.id;
   };
-  const lids = { machines: find(AUTH.lists.machines), orders: find(AUTH.lists.orders), ops: find(AUTH.lists.ops) };
-  const cols = await gpages(`${GAPI}/sites/${site.id}/lists/${lids.ops}/columns`, token);
-  const colBy = want => {
-    const n = normkey(want);
-    const c = cols.find(x => normkey(x.displayName) === n) || cols.find(x => normkey(x.displayName).includes(n));
-    return c ? c.name : want.replace(/ /g, '');
-  };
-  window._live = { sid: site.id, lids, opsCols: { mach: colBy('Machine Name'), order: colBy('Order ID') } };
+  const lids = {};
+  for (const [key, name] of Object.entries(AUTH.lists)) lids[key] = find(name);
+  window._live = { sid: site.id, lids };
   return window._live;
 }
 
-function toRaw(machItems, orderItems, opsItems, opsCols) {
-  const machines = [], mById = new Map(), mByNorm = new Map();
-  for (const it of machItems) {
-    const f = it.fields || {};
-    if (!f.Title) continue;
-    mById.set(String(it.id), machines.length);
-    mByNorm.set(normkey(f.Title), machines.length);
-    machines.push({n: f.Title, cat: f.MachineCategory || '', brand: f.Brand || ''});
-  }
-  const today = kstToday();
-  const orders = [], oById = new Map(), oByNorm = new Map();
-  for (const it of orderItems) {
-    const f = it.fields || {};
-    const od = kd(f.OrderDate);
-    if (!od) continue;
-    const pid = (f.ProductID || '').replace(/\s+/g, ' ').trim();
-    const idx = orders.length;
-    oById.set(String(it.id), idx);
-    orders.push({t: f.Title || (od.replaceAll('-', '') + '_' + pid), pid, od,
-      cd: kd(f.CompletionDate), cat: f.Category || '', buyer: (f.BuyerID || '').trim(),
-      qty: +f.Quantity || 0, act: 0, _last: null});
-    oByNorm.set(normkey(orders[idx].t), idx);
-  }
-  const ops = [], mc = opsCols.mach, oc = opsCols.order;
-  for (const it of opsItems) {
-    const f = it.fields || {};
-    const d = kd(f.Date);
-    if (!d) continue;
-    let mi = -1;
-    if (f[mc + 'LookupId'] !== undefined) mi = mById.get(String(f[mc + 'LookupId'])) ?? -1;
-    else if (f[mc]) mi = mByNorm.get(normkey(f[mc])) ?? -1;
-    if (mi < 0) continue;
-    let oi = -1;
-    if (f[oc + 'LookupId'] !== undefined) oi = oById.get(String(f[oc + 'LookupId'])) ?? -1;
-    else if (f[oc]) oi = oByNorm.get(normkey(f[oc])) ?? -1;
-    const st = f.StartTime ? new Date(f.StartTime) : null;
-    const en = f.EndTime ? new Date(f.EndTime) : null;
-    const hrs = st && en && en > st ? Math.round((en - st) / 3600e3 * 100) / 100 : 0;
-    ops.push([d, mi, oi, hrs, +f['Quantity_x0028_EA_x0029_'] || 0]);
-    if (oi >= 0) { const o = orders[oi]; if (!o._last || d > o._last) o._last = d; }
-  }
-  const d120 = addDays(today, -120), d30 = addDays(today, -30);
-  for (const o of orders) o.act = !o.cd && (o.od >= d120 || (o._last && o._last >= d30)) ? 1 : 0;
-  return {meta: {refday: today, mode: 'live'}, machines, orders, ops};
+const SEL = {
+  orders: 'Title,CustomerCodeSnapshot,Category,OrderDate,ConfirmedDueDate,Status,ProductionCompletedAt,FinalDeliveredAt,ClosedAt,LastActivityAt,RecordState',
+  lines: 'OrderNoSnapshot,QuantityOrdered,Unit,Status',
+  logs: 'WorkDate,ActivityType,OrderNoSnapshot,MachineCodeSnapshot,ActualMinutes,GoodQuantity,LegacyRecordedQuantity,LegacyReportedQuantity,RecordStatus,CorrectionState',
+  machines: 'Title,DisplayName,Brand,MachineGroup,MachineStatus,OperatingHoursBaseline,OperatingHoursBaselineAt,OperatingHoursDataSource,IsProductionMachine,IsActive',
+  plans: 'MachineCodeSnapshot,IntervalBasis,IntervalValue,NextDueDate,NextDueOperatingHours,IsActive',
+  events: 'MachineCodeSnapshot,Status,EventType,ReportedAt',
+};
+
+async function fetchAll(token) {
+  const { sid, lids } = await resolveSite(token);
+  /* work-log archive split: rows before Jan 1 of the current business year are
+     effectively immutable (legacy lists are read-only), so fetch them once per session */
+  const p = bizParts(Date.now());
+  const boundary = storageBoundary(p.y, 0, 1).toISOString();
+  const archivePromise = (window._archive && window._archive.key === boundary)
+    ? Promise.resolve(window._archive.rows)
+    : gpages(itemsUrl(sid, lids.logs, SEL.logs,
+        `&$filter=${encodeURIComponent(`fields/WorkDate lt '${boundary}'`)}`), token)
+      .then(rows => { window._archive = { key: boundary, rows }; return rows; });
+  const [orders, lines, machines, plans, events, logsNow, logsOld] = await Promise.all([
+    gpages(itemsUrl(sid, lids.orders, SEL.orders), token),
+    gpages(itemsUrl(sid, lids.lines, SEL.lines), token),
+    gpages(itemsUrl(sid, lids.machines, SEL.machines), token),
+    gpages(itemsUrl(sid, lids.plans, SEL.plans), token),
+    gpages(itemsUrl(sid, lids.events, SEL.events), token),
+    gpages(itemsUrl(sid, lids.logs, SEL.logs,
+      `&$filter=${encodeURIComponent(`fields/WorkDate ge '${boundary}'`)}`), token),
+    archivePromise,
+  ]);
+  const flds = rows => rows.map(it => it.fields || {});
+  return ingest({
+    orders: flds(orders), lines: flds(lines), machines: flds(machines),
+    plans: flds(plans), events: flds(events), logs: flds(logsOld).concat(flds(logsNow))
+  });
 }
 
 async function loadData(interactive) {
   document.body.classList.add('refreshing');
   try {
-    const token = await getToken(interactive);
-    const {sid, lids, opsCols} = await resolveSite(token);
-    const yearStart = kstToday().slice(0, 4) + '-01-01';
-    const [machItems, orderItems, opsItems] = await Promise.all([
-      fetchItems(sid, lids.machines, 'Title,MachineCategory,Brand', '', token),
-      fetchItems(sid, lids.orders, 'Title,OrderDate,Category,ProductID,BuyerID,Quantity,CompletionDate', '', token),
-      fetchItems(sid, lids.ops, `Date,StartTime,EndTime,Quantity_x0028_EA_x0029_,${opsCols.mach}LookupId,${opsCols.order}LookupId`,
-        `&$filter=fields/Date ge '${yearStart}T00:00:00Z'`, token),
-    ]);
-    RAW = toRaw(machItems, orderItems, opsItems, opsCols);
+    if (QP.get('mock') === '1') {
+      RAW = ingest(mockSource());
+    } else {
+      const token = await getToken(interactive);
+      RAW = await fetchAll(token);
+    }
     buildModel();
     window._lastFetch = new Date().toTimeString().slice(0, 5);
     renderAll();
@@ -1147,8 +1310,60 @@ async function loadData(interactive) {
   } finally { document.body.classList.remove('refreshing'); }
 }
 
-$('#signin-btn').textContent = t('signin_btn');
-$('#signin-note').textContent = t('signin_note');
+/* ================= mock data (?mock=1 — rendering check without SharePoint) ================= */
+function mockSource() {
+  const T = todayDayNum();
+  const dIso = n => dayStr(n) + 'T00:00:00Z';
+  const tsIso = n => new Date(n * DAY).toISOString();
+  const machines = [
+    { Title: 'Makino_M1', DisplayName: 'Makino_M1', MachineGroup: 'Machining_Center', Brand: 'Makino', MachineStatus: 'Available', IsProductionMachine: true, IsActive: true },
+    { Title: 'Doosan L1', DisplayName: 'Doosan L1', MachineGroup: 'CNC_Lathe', Brand: 'Doosan', MachineStatus: 'Available', IsProductionMachine: true, IsActive: true },
+    { Title: 'OKK_M2', DisplayName: 'OKK_M2', MachineGroup: 'Machining_Center', Brand: 'OKK', MachineStatus: 'Available', IsProductionMachine: true, IsActive: true },
+    { Title: 'KiRa D3', DisplayName: 'KiRa D3', MachineGroup: 'Drilling', Brand: 'KiRa', MachineStatus: 'Available', IsProductionMachine: true, IsActive: true },
+    { Title: 'Amada C1', DisplayName: 'Amada C1', MachineGroup: 'Support', MachineStatus: 'Available', IsProductionMachine: false, IsActive: true },
+  ];
+  const orders = [
+    { Title: 'MOCK-OVERDUE-01', Category: 'Product', CustomerCodeSnapshot: 'SANTECH', Status: 'InProgress', RecordState: 'Active', OrderDate: dIso(T - 20), ConfirmedDueDate: dIso(T - 2) },
+    { Title: 'MOCK-DUESOON-02', Category: 'Mold-Core', CustomerCodeSnapshot: 'EPE', Status: 'InProgress', RecordState: 'Active', OrderDate: dIso(T - 10), ConfirmedDueDate: dIso(T + 2) },
+    { Title: 'MOCK-STALLED-03', Category: 'Product', CustomerCodeSnapshot: 'HITECH', Status: 'Received', RecordState: 'Active', OrderDate: dIso(T - 40) },
+    { Title: 'MOCK-NOSTART-04', Category: 'Sample', CustomerCodeSnapshot: 'KNC', Status: 'Received', RecordState: 'Active', OrderDate: dIso(T - 9) },
+    { Title: 'MOCK-DONE-05', Category: 'Product', CustomerCodeSnapshot: 'SANTECH', Status: 'ProductionComplete', RecordState: 'Active', OrderDate: dIso(T - 15), ProductionCompletedAt: tsIso(T - 1) },
+    { Title: 'MOCK-LONG-06', Category: 'Repair Product', CustomerCodeSnapshot: 'EPE', Status: 'InProgress', RecordState: 'Active', OrderDate: dIso(T - 80) },
+  ];
+  const lines = [
+    { OrderNoSnapshot: 'MOCK-OVERDUE-01', QuantityOrdered: 100, Unit: 'EA', Status: 'Active' },
+    { OrderNoSnapshot: 'MOCK-DUESOON-02', QuantityOrdered: 10, Unit: 'EA', Status: 'Active' },
+    { OrderNoSnapshot: 'MOCK-STALLED-03', QuantityOrdered: 50, Unit: 'EA', Status: 'Active' },
+    { OrderNoSnapshot: 'MOCK-NOSTART-04', QuantityOrdered: 5, Unit: 'EA', Status: 'Active' },
+    { OrderNoSnapshot: 'MOCK-DONE-05', QuantityOrdered: 30, Unit: 'EA', Status: 'Active' },
+    { OrderNoSnapshot: 'MOCK-LONG-06', QuantityOrdered: 200, Unit: 'EA', Status: 'Active' },
+  ];
+  const logs = [];
+  const log = (d, m, o, min, gq, lq) => logs.push({ WorkDate: dIso(d), ActivityType: 'Production',
+    OrderNoSnapshot: o, MachineCodeSnapshot: m, ActualMinutes: min, GoodQuantity: gq,
+    LegacyRecordedQuantity: lq, RecordStatus: 'Valid', CorrectionState: 'None' });
+  log(T - 3, 'Makino_M1', 'MOCK-OVERDUE-01', 420, 60);
+  log(T, 'Makino_M1', 'MOCK-OVERDUE-01', 180, 20);
+  log(T - 2, 'Doosan L1', 'MOCK-OVERDUE-01', 300, 90);
+  log(T - 1, 'OKK_M2', 'MOCK-DUESOON-02', 240, 4);
+  log(T, 'OKK_M2', 'MOCK-DUESOON-02', 120, 2, 2);          /* legacy-quantity marker */
+  log(T - 12, 'KiRa D3', 'MOCK-STALLED-03', 480, 10);       /* idle 12 days → stalled */
+  logs.push({ WorkDate: dIso(T - 12), ActivityType: 'Production', OrderNoSnapshot: 'MOCK-STALLED-03',
+    MachineCodeSnapshot: 'KiRa D3', ActualMinutes: 60, GoodQuantity: 999,
+    RecordStatus: 'Voided', CorrectionState: 'None' });      /* must be excluded */
+  for (let i = 0; i < 10; i++) { log(T - 14 + i, 'Makino_M1', 'MOCK-DONE-05', 200, 3); log(T - 14 + i, 'Doosan L1', 'MOCK-DONE-05', 150, 3); }
+  for (let i = 0; i < 60; i += 3) log(T - 78 + i, 'Doosan L1', 'MOCK-LONG-06', 360, 8);  /* >36-day span → weekly chart */
+  const plans = [
+    { MachineCodeSnapshot: 'OKK_M2', IntervalBasis: 'CalendarDays', IntervalValue: 90, NextDueDate: tsIso(T + 1), IsActive: true },
+  ];
+  const events = [
+    { MachineCodeSnapshot: 'Makino_M1', Status: 'Reported', EventType: 'Breakdown', ReportedAt: tsIso(T - 1) },
+  ];
+  return { machines, orders, lines, logs, plans, events };
+}
+
+/* ================= boot ================= */
+$('#refreshbtn').onclick = () => loadData(true).catch(() => {});
 $('#signin-btn').onclick = async () => {
   $('#signin-btn').textContent = t('loading');
   $('#signin-err').textContent = '';
